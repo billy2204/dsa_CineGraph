@@ -9,6 +9,7 @@ yarn-error.log*
 .vite/
 dist/
 build/
+BE/java/out/
 
 # Env files
 .env
@@ -27,6 +28,8 @@ logs/
 coverage/
 
 # Misc
+__pycache__/
+*.pyc
 *.csv
 *.dat
 *.tmp
