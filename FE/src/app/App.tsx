@@ -7,19 +7,20 @@ interface User {
   email: string;
 }
 
-const REVIEW_USER: User = {
-  name: "Layout Review",
-  email: "review@cinegraph.local",
-};
-
 export default function App() {
   const [user, setUser] = useState<User | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("auth") === "1" ? null : REVIEW_USER;
+    try {
+      const raw = window.localStorage.getItem("cinegraph:profile");
+      if (!raw) return null;
+      const savedUser = JSON.parse(raw) as User;
+      return savedUser?.email ? savedUser : null;
+    } catch {
+      return null;
+    }
   });
 
   if (!user) {
-    return <AuthPage onLogin={setUser} onPreview={() => setUser(REVIEW_USER)} />;
+    return <AuthPage onLogin={setUser} />;
   }
 
   return (

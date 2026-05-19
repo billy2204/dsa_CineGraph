@@ -47,6 +47,9 @@ export function MovieModal({ movie, onClose }: MovieModalProps) {
 
           <div className="absolute bottom-4 left-6 right-16">
             <h2 className="text-white mb-1" style={{ fontSize: "1.5rem", fontWeight: "800" }}>{movie.title}</h2>
+            {movie.originalTitle && movie.originalTitle !== movie.title && (
+              <div className="text-gray-300 mb-1" style={{ fontSize: "0.9rem" }}>{movie.originalTitle}</div>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1">
                 <Star className="w-4 h-4" style={{ color: scoreColor, fill: scoreColor }} />

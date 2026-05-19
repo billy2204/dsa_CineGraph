@@ -10,7 +10,8 @@ Generated files:
 - Final records: 10,000
 - Unique `movie_id` values: 10,000
 - Duplicate source IDs repaired: 8 rows now keep the original source ID in `source_ids.dedupe_original_movie_id`.
-- Verified hot Vietnamese records updated from web search: 16
+- Verified hot Vietnamese records updated from web search: 17
+- `vote_average` now has no `0` values. Public IMDb/TMDB-style ratings were used where they were available; otherwise ratings are explicitly marked as normalized catalog estimates.
 - Blank scalar fields after cleanup: {}
 - Empty critical array fields after cleanup: {}
 - All originally missing values are now represented by explicit values, not SQL NULL.
@@ -22,20 +23,21 @@ Generated files:
 
 - Other: 5,336
 - US: 3,791
-- Vietnam: 493
-- Korea: 448
+- Vietnam: 474
+- Korea: 427
 
 ## Data Status
 
-- source_enriched_completed_with_defaults: 9,984
-- source_enriched_verified: 16
+- source_enriched_completed_with_rating_estimate: 7,843
+- source_enriched_completed_with_defaults: 2,140
+- source_enriched_verified: 17
 
 ## Most Common Imputed Fields
 
 - curation_sources: 9,981
 - production_companies: 8,094
-- vote_average: 7,810
-- vote_count: 7,810
+- vote_average_estimated: 7,843
+- vote_count_estimated: 7,843
 - languages: 7,804
 - release_date: 7,794
 - original_title: 7,793
@@ -63,6 +65,23 @@ Generated files:
 - https://watch.plex.tv/movie/mui-pho
 - https://www.netflix.com/tudum/top10/vietnam
 - https://www.netflix.com/tudum/top10/south-korea
+- https://www.imdb.com/title/tt37658932/
+- https://www.imdb.com/title/tt37997249/
+- https://www.imdb.com/title/tt38934698/
+- https://www.imdb.com/title/tt33996602/
+- https://www.imdb.com/title/tt36386168/
+- https://www.imdb.com/title/tt36808524/
+- https://www.imdb.com/title/tt40790250/
+- https://www.imdb.com/title/tt34268350/
+- https://www.imdb.com/title/tt36121849/
+- https://www.imdb.com/title/tt38132338/
+- https://www.imdb.com/title/tt34460889/
+- https://www.imdb.com/title/tt35676748/
+- https://www.imdb.com/title/tt38866268/
+- https://www.imdb.com/title/tt39313238/
+- https://www.imdb.com/title/tt38934731/
+- https://www.imdb.com/title/tt9690302/
+- https://mdblist.com/lists/mio_/new-vietnamese-movies
 
 ## PostgreSQL Verification
 
@@ -72,6 +91,7 @@ After reimporting into Aiven PostgreSQL:
 - Unique `movie_id`: 10,000
 - NULL count for core scalar fields: 0
 - Empty count for core JSON array fields: 0
+- `vote_average <= 0`: 0 rows in the cleaned CSV. Reimport the CSV/JSONL export before relying on this count in PostgreSQL.
 
 Verified fields include title, original title, type, release year/date, director, description, maturity rating, vote/rating/popularity fields, runtime/seasons, actors, genres, keywords, countries, languages, production companies, region focus, trend tags, and curation sources.
 

@@ -1,6 +1,7 @@
 export interface Movie {
   id: string;
   title: string;
+  originalTitle?: string;
   year: number;
   rating: number;
   genres: string[];
@@ -10,6 +11,8 @@ export interface Movie {
   description: string;
   poster: string;
   duration: number;
+  countries?: string[];
+  languages?: string[];
 }
 
 export interface GraphNode {
@@ -287,9 +290,118 @@ export const MOVIES: Movie[] = [
   },
 ];
 
+const LOCAL_MOVIE_COUNTRIES: Record<string, string[]> = {
+  m1: ["United States"],
+  m2: ["United States", "United Kingdom"],
+  m3: ["United States", "United Kingdom"],
+  m4: ["South Korea"],
+  m5: ["United States"],
+  m6: ["United States"],
+  m7: ["United States", "Australia"],
+  m8: ["United States"],
+  m9: ["United States"],
+  m10: ["United States"],
+  m11: ["United States"],
+  m12: ["United States"],
+  m13: ["United States"],
+  m14: ["Australia", "United States"],
+  m15: ["Japan"],
+  m16: ["United States"],
+  m17: ["United States"],
+  m18: ["United States"],
+  m19: ["United States"],
+  m20: ["United States"],
+};
+
+const LOCAL_MOVIE_LANGUAGES: Record<string, string[]> = {
+  m4: ["Korean"],
+  m15: ["Japanese"],
+};
+
+export interface UserTaste {
+  genres: string[];
+  countries: string[];
+  actors: string[];
+  directors: string[];
+  keywords: string[];
+  genreWeight: number;
+  countryWeight: number;
+  actorWeight: number;
+  directorWeight: number;
+  keywordWeight: number;
+}
+
+export const DEFAULT_USER_TASTE: UserTaste = {
+  genres: ["Drama", "Thriller"],
+  countries: ["Vietnam", "United States"],
+  actors: [],
+  directors: [],
+  keywords: [],
+  genreWeight: 30,
+  countryWeight: 20,
+  actorWeight: 20,
+  directorWeight: 20,
+  keywordWeight: 10,
+};
+
+export function movieCountries(movie: Movie): string[] {
+  return movie.countries?.filter(Boolean) ?? LOCAL_MOVIE_COUNTRIES[movie.id] ?? ["United States"];
+}
+
+export function movieLanguages(movie: Movie): string[] {
+  return movie.languages?.filter(Boolean) ?? LOCAL_MOVIE_LANGUAGES[movie.id] ?? ["English"];
+}
+
+function normalize(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function anyMatch(values: string[], preferences: string[]) {
+  const normalizedPreferences = preferences.map(normalize).filter(Boolean);
+  if (normalizedPreferences.length === 0) return false;
+  return values.some((value) => {
+    const normalizedValue = normalize(value);
+    return normalizedPreferences.some((preference) => normalizedValue.includes(preference) || preference.includes(normalizedValue));
+  });
+}
+
+function matchRatio(values: string[], preferences: string[]) {
+  const normalizedPreferences = preferences.map(normalize).filter(Boolean);
+  if (normalizedPreferences.length === 0) return 0;
+  const matches = normalizedPreferences.filter((preference) =>
+    values.some((value) => {
+      const normalizedValue = normalize(value);
+      return normalizedValue.includes(preference) || preference.includes(normalizedValue);
+    })
+  );
+  return matches.length / normalizedPreferences.length;
+}
+
+export function tasteScore(movie: Movie, taste: UserTaste): number {
+  const score =
+    taste.genreWeight * matchRatio(movie.genres, taste.genres) +
+    taste.countryWeight * matchRatio(movieCountries(movie), taste.countries) +
+    taste.actorWeight * matchRatio(movie.actors, taste.actors) +
+    taste.directorWeight * matchRatio([movie.director], taste.directors) +
+    taste.keywordWeight * matchRatio(movie.keywords, taste.keywords);
+
+  return Math.round(score * 100) / 100;
+}
+
+export function tasteReasons(movie: Movie, taste: UserTaste): string[] {
+  const reasons: string[] = [];
+  if (anyMatch(movie.genres, taste.genres)) reasons.push("Taste genre");
+  if (anyMatch(movieCountries(movie), taste.countries)) reasons.push("Taste country");
+  if (anyMatch(movie.actors, taste.actors)) reasons.push("Taste actor");
+  if (anyMatch([movie.director], taste.directors)) reasons.push("Taste director");
+  if (anyMatch(movie.keywords, taste.keywords)) reasons.push("Taste keyword");
+  return reasons;
+}
+
 export const ALL_GENRES = [...new Set(MOVIES.flatMap((m) => m.genres))].sort();
 export const ALL_ACTORS = [...new Set(MOVIES.flatMap((m) => m.actors))].sort();
 export const ALL_DIRECTORS = [...new Set(MOVIES.map((m) => m.director))].sort();
+export const ALL_COUNTRIES = [...new Set(MOVIES.flatMap((m) => movieCountries(m)).concat(["Vietnam", "United States", "South Korea", "Japan", "France"]))].sort();
 export const YEARS = [...new Set(MOVIES.map((m) => m.year))].sort((a, b) => b - a);
 
 // Edge weights for graph similarity
@@ -307,6 +419,7 @@ export interface SearchFilters {
   minRating: number;
   actor: string;
   director: string;
+  country: string;
 }
 
 export interface SearchResult {
@@ -323,7 +436,9 @@ export interface Recommendation {
 
 export function searchMovies(
   query: string,
-  filters: Partial<SearchFilters>
+  filters: Partial<SearchFilters>,
+  taste: UserTaste = DEFAULT_USER_TASTE,
+  limit = 72
 ): SearchResult[] {
   const q = query.toLowerCase().trim();
 
@@ -384,6 +499,12 @@ export function searchMovies(
       score = movie.rating * 10;
     }
 
+    const preferenceScore = tasteScore(movie, taste);
+    if (preferenceScore > 0) {
+      score += preferenceScore;
+      matchReasons.push(...tasteReasons(movie, taste));
+    }
+
     return { movie, score, matchReasons };
   });
 
@@ -397,6 +518,7 @@ export function searchMovies(
     if (filters.minRating && r.movie.rating < filters.minRating) return false;
     if (filters.actor && !r.movie.actors.some((a) => a.toLowerCase().includes(filters.actor!.toLowerCase()))) return false;
     if (filters.director && !r.movie.director.toLowerCase().includes(filters.director.toLowerCase())) return false;
+    if (filters.country && !movieCountries(r.movie).some((country) => country.toLowerCase().includes(filters.country!.toLowerCase()))) return false;
 
     return true;
   });
@@ -405,11 +527,11 @@ export function searchMovies(
   results.sort((a, b) => b.score - a.score);
 
   // BR15: Limit results
-  return results.slice(0, 12);
+  return results.slice(0, limit);
 }
 
 // BR6-BR10: Graph-based recommendation engine
-export function getRecommendations(sourceMovie: Movie, allMovies: Movie[]): Recommendation[] {
+export function getRecommendations(sourceMovie: Movie, allMovies: Movie[], taste: UserTaste = DEFAULT_USER_TASTE, limit = 12): Recommendation[] {
   const candidates = allMovies.filter((m) => m.id !== sourceMovie.id); // BR11
 
   const scored = candidates.map((movie) => {
@@ -448,6 +570,7 @@ export function getRecommendations(sourceMovie: Movie, allMovies: Movie[]): Reco
 
     const topReason = reasons[0] || "Similar style";
     const explanation = `${topReason}${reasons.length > 1 ? ` and ${reasons.length - 1} more connection${reasons.length > 2 ? "s" : ""}` : ""}`;
+    score += tasteScore(movie, taste) / 100;
 
     return { movie, score, explanation };
   });
@@ -458,5 +581,20 @@ export function getRecommendations(sourceMovie: Movie, allMovies: Movie[]): Reco
 
   // BR14: Explanation is already set above
   // BR15: Limit recommendations
-  return sorted.slice(0, 6);
+  return sorted.slice(0, limit);
+}
+
+export function getTasteRecommendations(allMovies: Movie[], taste: UserTaste, limit = 24): Recommendation[] {
+  return [...allMovies]
+    .map((movie) => {
+      const score = tasteScore(movie, taste);
+      return {
+        movie,
+        score,
+        explanation: tasteReasons(movie, taste).join(", ") || "Ranked by rating and trend",
+      };
+    })
+    .filter((recommendation) => recommendation.score > 0)
+    .sort((a, b) => b.score - a.score || b.movie.rating - a.movie.rating)
+    .slice(0, limit);
 }

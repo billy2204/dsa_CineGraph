@@ -9,11 +9,22 @@ yarn-error.log*
 .vite/
 dist/
 build/
-BE/java/out/
+BE/out/
 
 # Env files
 .env
 .env.*
+BE/config.properties
+
+# Secrets/certs
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+*.jks
+*.keystore
 
 # OS/editor
 .DS_Store

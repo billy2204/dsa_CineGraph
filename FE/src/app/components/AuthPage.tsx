@@ -3,10 +3,9 @@ import { Eye, EyeOff, Film, Star, Search } from "lucide-react";
 
 interface AuthPageProps {
   onLogin: (user: { name: string; email: string }) => void;
-  onPreview: () => void;
 }
 
-export function AuthPage({ onLogin, onPreview }: AuthPageProps) {
+export function AuthPage({ onLogin }: AuthPageProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
@@ -217,22 +216,6 @@ export function AuthPage({ onLogin, onPreview }: AuthPageProps) {
               {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
             </button>
 
-            <button
-              type="button"
-              onClick={onPreview}
-              className="w-full py-3 rounded-lg text-white transition-all duration-200"
-              style={{
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                fontWeight: "700",
-                fontSize: "0.95rem",
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = "rgba(255,45,85,0.45)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; }}
-            >
-              Preview Layout
-            </button>
-
             {mode === "login" && (
               <div className="text-center">
                 <button type="button" className="text-gray-400 hover:text-gray-200 transition-colors" style={{ fontSize: "0.8rem" }}>
@@ -253,10 +236,6 @@ export function AuthPage({ onLogin, onPreview }: AuthPageProps) {
           </div>
         </div>
 
-        {/* Demo hint */}
-        <p className="text-center text-gray-600 mt-4" style={{ fontSize: "0.75rem" }}>
-          Demo: any email & password to continue
-        </p>
       </div>
     </div>
   );

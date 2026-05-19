@@ -14,7 +14,7 @@ Movie data
 
 ## Tinh nang chinh
 
-- Search phim theo title, actor, director, genre, keyword, nam phat hanh, rating.
+- Search phim theo title, actor, director, genre, keyword, quoc gia, nam phat hanh, rating.
 - Rank ket qua search bang relevance score.
 - Build graph in-memory tu movie metadata.
 - Recommend phim bang shared graph neighbors:
@@ -27,6 +27,8 @@ Movie data
 - Slider threshold trong recommendation: chi lay phim co score >= threshold.
 - Ghi nhan user interactions realtime: search, click, view, favorite, watchlist, rating.
 - Runtime recommendation settings: co the doi weight ma khong can restart server.
+- User taste profile: the loai, quoc gia, dien vien, dao dien, keyword va weight rieng duoc dua vao search/recommendation.
+- UI co sidebar tab doc ben trai, profile settings, light/dark theme, VI/EN language, va search results duoc gom theo khu vuc phim.
 
 ## Cau truc thu muc
 
@@ -49,21 +51,20 @@ Movie data
 │       └── styles/
 │
 ├── BE/
-│   ├── .env
+│   ├── config.properties
 │   ├── ca.pem
 │   ├── final_movie_catalog.csv
+│   ├── run.sh
 │   ├── docs/
-│   └── java/
-│       ├── README.md
-│       └── src/main/java/com/cinegraph/
-│           ├── Application.java
-│           ├── domain/
-│           ├── graph/
-│           ├── index/
-│           ├── json/
-│           ├── repository/
-│           ├── server/
-│           └── service/
+│   └── src/
+│       ├── Application.java
+│       ├── domain/
+│       ├── graph/
+│       ├── index/
+│       ├── json/
+│       ├── repository/
+│       ├── server/
+│       └── service/
 │
 └── README.md
 ```
@@ -94,34 +95,36 @@ Mac dinh Vite se hien URL dang:
 http://localhost:5173
 ```
 
-Luu y: frontend hien tai dang dung local mock data trong:
-
-```text
-FE/src/app/components/movieData.ts
-```
-
-Backend Java API da co san, nhung frontend chua duoc wire hoan toan sang API backend.
+Frontend uu tien backend API (`/api/movies`, `/api/search`, `/api/recommendations`) va chi fallback ve local seed data khi API chua chay.
 
 ## Backend Java
 
 Backend nam trong:
 
 ```text
-BE/java
+BE/src
 ```
 
-Backend duoc viet bang Java thuan JDK, khong can Maven/Gradle. Muc tieu la de phan DSA nhin ro trong code.
+Backend duoc viet bang Java thuan JDK, khong can Maven/Gradle. Muc tieu la de phan DSA nhin ro trong code. Backend mac dinh doc config tu `BE/config.properties` thay cho `.env`.
 
-Compile:
+Chay nhanh:
 
 ```bash
-javac -d BE/java/out $(find BE/java/src/main/java -name '*.java')
+BE/run.sh
 ```
 
-Run:
+Lenh tren se clean `BE/out`, compile lai Java source trong `BE/src`, sau do start API server.
+
+Compile thu cong:
 
 ```bash
-java -cp BE/java/out com.cinegraph.Application
+javac -d BE/out $(find BE/src -name '*.java')
+```
+
+Run thu cong:
+
+```bash
+java -cp BE/out Application
 ```
 
 Sau khi start thanh cong:
@@ -132,27 +135,55 @@ http://localhost:8080/api/health
 
 Neu can doi port:
 
-```bash
-PORT=9090 java -cp BE/java/out com.cinegraph.Application
+```properties
+server.port=9090
 ```
 
-Neu can chi ro data file:
+Neu can chi ro file config khac:
 
 ```bash
-MOVIE_DATA_PATH=BE/final_movie_catalog.jsonl java -cp BE/java/out com.cinegraph.Application
+BE/run.sh --config BE/config.properties
 ```
 
-Luu y: backend Java hien tai doc JSONL qua `JsonlMovieRepository`. Neu chi co CSV, can convert CSV sang JSONL hoac them repository doc CSV.
+Neu muon debug bang JSONL thay DB:
+
+```properties
+movie.source=jsonl
+movie.data.path=final_movie_catalog.jsonl
+```
+
+Hoac:
+
+```bash
+BE/run.sh --jsonl BE/final_movie_catalog.jsonl
+```
+
+Neu dung PostgreSQL, set trong `BE/config.properties`:
+
+```properties
+movie.source=postgres
+db.psql.bin=psql
+db.host=your-host
+db.port=5432
+db.name=your-db
+db.user=your-user
+db.password=your-password
+db.sslmode=require
+db.schema=public
+db.table=movies
+```
+
+Luu y: Java goi `psql` CLI de doc DB theo `BE/config.properties`. Cach nay giu project Java thuan, khong can JDBC jar/Maven.
 
 ## Database
 
-Thong tin ket noi DB nam trong:
+Thong tin ket noi DB va config backend nam trong:
 
 ```text
-BE/.env
+BE/config.properties
 ```
 
-Khong commit `.env` len Git.
+Khong commit `BE/config.properties` len Git neu co secrets.
 
 Bang raw movie chinh:
 
@@ -225,7 +256,7 @@ actor:leonardo-dicaprio -> movie:titanic
 Search field weights:
 
 ```text
-BE/java/src/main/java/com/cinegraph/index/IndexedField.java
+BE/src/index/IndexedField.java
 ```
 
 Vi du:
@@ -240,7 +271,7 @@ KEYWORD = 25
 Graph relationship weights:
 
 ```text
-BE/java/src/main/java/com/cinegraph/graph/RelationshipType.java
+BE/src/graph/RelationshipType.java
 ```
 
 Vi du:
@@ -255,7 +286,7 @@ KEYWORD = 2
 Runtime recommendation weights:
 
 ```text
-BE/java/src/main/java/com/cinegraph/service/RuntimeRecommendationSettings.java
+BE/src/service/RuntimeRecommendationSettings.java
 ```
 
 Final score:
@@ -364,6 +395,7 @@ query
   -> trie prefix search
   -> inverted index lookup
   -> score by matched field
+  -> add taste weight score
   -> apply filters
   -> sort/top K
 ```
@@ -388,9 +420,31 @@ seed movie
   -> score by shared relationships
   -> add user interaction score
   -> add quality bonus
+  -> add taste preference bonus
   -> normalize 0-100
   -> apply threshold
   -> top K
+```
+
+Taste params tu frontend/API:
+
+```text
+preferred_genres, preferred_countries, preferred_actors, preferred_directors, preferred_keywords
+genre_weight, country_weight, actor_weight, director_weight, keyword_weight
+```
+
+Backend score weights tu `BE/config.properties`:
+
+```properties
+recommendation.graph_weight=0.60
+recommendation.interaction_weight=0.30
+recommendation.quality_weight=0.10
+recommendation.user_interaction_blend=0.70
+recommendation.relationship.director=5.0
+recommendation.relationship.actor=4.0
+recommendation.relationship.genre=3.0
+recommendation.relationship.keyword=2.0
+recommendation.relationship.country=1.0
 ```
 
 Example:
@@ -438,7 +492,7 @@ heavy recommendation: ~50-150ms
 
 ## Luu y hien trang
 
-- FE dang la demo UI local data.
-- Java backend API da implement core search/recommendation.
+- FE da wire sang Java backend API va fallback ve local seed data neu API chua chay.
+- Java backend API da implement core search/recommendation voi taste weights.
 - Interaction realtime hien dang luu in-memory, nen restart server se mat runtime user stats/settings.
-- Neu muon production hon, buoc tiep theo la persist interaction/settings vao PostgreSQL va wire FE sang backend API.
+- Neu muon production hon, buoc tiep theo la persist interaction/settings vao PostgreSQL.
